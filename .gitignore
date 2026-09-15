@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+*.pyo
+.ram_cache_adproto/
+*.pt
+*.pth
+*.ckpt
+.DS_Store
+.venv/
+venv/
+*.egg-info/
