@@ -10,12 +10,20 @@ producing 3 prototype candidates per class. A lightweight channel-attention gate
 contributions per query image, giving the model both global context and
 fine-grained local evidence.
 
-Why this beats the baseline:
-  - Fine-grained anatomy (kidneys, aorta) benefits from local 8x8 pooling
-    which preserves tubular / small-structure signals.
-  - Large diffuse organs (liver) benefit from global 32x32 pooling.
+Why it improves on the baseline:
+  - Fine-grained anatomy (kidneys) benefits most from local 8x8 pooling,
+    which preserves small-structure signals.
   - The attention gate learns *which scale to trust* from the query feature
     statistics — avoiding a fixed per-organ hand-design.
+  - Known limitation: the liver drops slightly (87.56 -> 84.80 Dice). A likely
+    cause is that finer scales dilute the global context large organs need, or
+    the gate does not always favour the coarse scale. Future work: inspect the
+    learned gate weights per organ and try per-organ scale selection.
+
+Results (1-shot, 4-fold patient-level CV, volume-level Dice %):
+  Method                    Spleen  R.Kid  L.Kid  Liver  Aorta   Mean
+  Baseline (single-scale)    88.96  79.77  83.51  87.56  84.56  84.87
+  ADProto-Net (MSAPA)        91.70  85.47  88.71  84.80  85.03  87.14
 
 What is NOT here (keeping it clean for publication):
   - No HW^2 self-similarity matrix (that's what killed SPSP-Net)
@@ -70,9 +78,10 @@ warnings.filterwarnings("ignore")
 # ====================================================================
 
 class CFG:
-    raw_dir      = "/home/balaji/Desktop/arun_MIS/medical_data/RawData"
-    data_dir     = "/home/balaji/Desktop/arun_MIS/medical_data/Preprocessed"
-    save_dir     = "/home/balaji/Desktop/arun_MIS/medical_data/checkpoints_adproto"
+    # Override with environment variables or the --raw_dir/--data_dir/--save_dir flags
+    raw_dir      = os.getenv("ADPROTO_RAW_DIR",  "./medical_data/RawData")
+    data_dir     = os.getenv("ADPROTO_DATA_DIR", "./medical_data/Preprocessed")
+    save_dir     = os.getenv("ADPROTO_SAVE_DIR", "./medical_data/checkpoints_adproto")
 
     mode         = "train"
     fold         = -1
@@ -1274,7 +1283,7 @@ def run(cfg=None):
     print(f"  Organs: {[ORGAN_MAP[o] for o in ORGAN_IDS]}")
     print(f"  Eval seed: {cfg.eval_seed}  (deterministic support assignment)")
     print(f"  Split seed: {cfg.split_seed}  (shuffled fold assignment)")
-    print(f"  Baseline to beat: 85.57% overall")
+    print(f"  Baseline (single-scale, same split): 84.87% mean Dice")
     print(f"{'=' * 60}")
 
     if cfg.mode == "train":
@@ -1308,7 +1317,7 @@ def run(cfg=None):
         print(f"  +------------------------------------------------+")
         best_strs = [f"{d*100:.2f}%" for d in all_best]
         print(f"  |  Per-fold: {best_strs}")
-        print(f"  |  Baseline: ['90.45%', '77.45%', '88.04%', '86.34%']")
+        print(f"  |  Baseline mean Dice: 84.87%  (ADProto-Net target: 87.14%)")
         print(f"  +================================================+")
         return all_best, all_vol_dices
 
